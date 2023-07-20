@@ -3,7 +3,7 @@ name: continuous-release
 on:
   push:
     branches:
-      - main
+      - master
 
 env:
   CARGO_TERM_COLOR: always
