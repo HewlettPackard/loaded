@@ -1,0 +1,125 @@
+name: continuous-release
+
+on:
+  push:
+    branches:
+      - main
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  bump-release-version:
+    runs-on: [ self-hosted ]
+    steps:
+      - name: Check out
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0 # all tags
+      - name: Get tags
+        run: git fetch --tags origin
+      - id: toolchain
+        run: |
+          echo "toolchain_version=$(grep channel rust-toolchain.toml | sed -E 's/.*\"(.*)\"/\1/')" >> "$GITHUB_OUTPUT"
+      - name: Install toolchain
+        uses: hpe/rust-toolchain@master
+        with:
+          toolchain: ${{steps.toolchain.outputs.toolchain_version}}
+          components: rustfmt, clippy
+      - name: Install Cargo Dependencies
+        run: |
+          source $HOME/.cargo/env
+          cargo install cargo-workspaces
+          cargo install git-cliff
+      - name: Bump Version
+        id: bump-version
+        run: |
+          source $HOME/.cargo/env
+          git config user.name "Mike Carlin" 
+          git config user.email "mike.carlin@hpe.com"
+          chmod +x ./scripts/version_bump.sh
+          if ./scripts/version_bump.sh; then
+            echo "bumped=true" >> "$GITHUB_OUTPUT"
+            echo "new_tag=$(git describe --tags --abbrev=0)" >> "$GITHUB_OUTPUT"
+          fi
+        shell: bash
+    outputs:
+      bumped: ${{ steps.bump-version.outputs.bumped }}
+      new_tag: ${{ steps.bump-version.outputs.new_tag }}
+  create-release:
+    runs-on: [ self-hosted ]
+    needs: bump-release-version
+    if: ${{ needs.bump-release-version.outputs.bumped == 'true' }}
+    steps:
+      - name: Retrieve Release Changelog
+        id: release-changelog
+        run: |
+          EOF=$(dd if=/dev/urandom bs=15 count=1 status=none | base64)
+          echo "RELEASE_CHANGELOG<<$EOF" >> "$GITHUB_ENV"
+          git-cliff -l -s all >> "$GITHUB_ENV"
+          echo "$EOF" >> "$GITHUB_ENV"
+      - name: Create Release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ needs.bump-release-version.outputs.new_tag }}
+          release_name: Release ${{ needs.bump-release-version.outputs.new_tag }}
+          body: ${{ env.RELEASE_CHANGELOG }}
+          draft: false
+          prerelease: false
+    outputs:
+      upload_url: ${{ steps.create_release.outputs.upload_url }}
+  release-build:
+    runs-on: [ self-hosted ]
+    needs: [ create-release ]
+    strategy:
+      matrix:
+        arch: [ x86_64-unknown-linux-gnu, aarch64-unknown-linux-gnu ]
+    steps:
+      - id: toolchain
+        run: |
+          echo "toolchain_version=$(grep channel rust-toolchain.toml | sed -E 's/.*\"(.*)\"/\1/')" >> "$GITHUB_OUTPUT"
+      - name: Install toolchain
+        uses: hpe/rust-toolchain@master
+        with:
+          toolchain: ${{steps.toolchain.outputs.toolchain_version}}
+          components: rustfmt, clippy
+      - name: Install Cargo Dependencies
+        run: |
+          source $HOME/.cargo/env
+          cargo install cross
+      - name: build
+        run: |
+          source $HOME/.cargo/env
+          cross build --release --target ${{ matrix.arch }}
+  upload-release:
+    runs-on: [ self-hosted ]
+    needs: [ create-release, release-build ]
+    strategy:
+      matrix:
+        arch: [ x86_64-unknown-linux-gnu, aarch64-unknown-linux-gnu ]
+    steps:
+      - name: Upload Release Asset
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ needs.create-release.outputs.upload_url }}
+          asset_path: ./target/${{ matrix.arch }}/release/loaded
+          asset_name: loaded-${{ matrix.arch }}
+          asset_content_type: application/octet-stream
+  upload-changelog:
+    runs-on: [ self-hosted ]
+    needs: [ create-release, release-build ]
+    steps:
+      - name: Upload Release Asset
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ needs.create-release.outputs.upload_url }}
+          asset_path: ./CHANGELOG.md
+          asset_name: CHANGELOG.md
+          asset_content_type: application/octet-stream

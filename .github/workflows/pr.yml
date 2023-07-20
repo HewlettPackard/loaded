@@ -1,0 +1,45 @@
+name: pull-request-check
+
+on:
+  pull_request:
+    branches:
+      - main
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+    runs-on: [ self-hosted ]
+    strategy:
+      matrix:
+        arch: [ x86_64-unknown-linux-gnu, aarch64-unknown-linux-gnu ]
+    steps:
+      - name: Check out
+        uses: actions/checkout@v3
+      - name: Toolchain
+        id: toolchain
+        run: |
+          echo "toolchain_version=$(grep channel rust-toolchain.toml | sed -E 's/.*\"(.*)\"/\1/')" >> "$GITHUB_OUTPUT"
+      - name: Install toolchain
+        uses: hpe/rust-toolchain@master
+        with:
+          toolchain: ${{steps.toolchain.outputs.toolchain_version}}
+          components: rustfmt, clippy
+      - name: Install Cargo Dependencies
+        run: |
+          source $HOME/.cargo/env
+          cargo install cross
+      - name: Lint
+        run: |
+          source $HOME/.cargo/env
+          cargo fmt --all -- --check
+          cargo clippy -- -D warnings
+      - name: build
+        run: |
+          source $HOME/.cargo/env
+          cross build --target ${{ matrix.arch }}
+      - name: Test
+        run: |
+          source $HOME/.cargo/env
+          cross test --target ${{ matrix.arch }}
