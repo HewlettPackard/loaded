@@ -17,7 +17,6 @@ use std::sync::atomic::Ordering::Relaxed;
 use std::sync::Arc;
 use tokio::net::TcpStream;
 use tokio::sync::Barrier;
-use tokio::task::yield_now;
 use tokio::time::Instant;
 
 pub mod completion;
@@ -38,11 +37,7 @@ pub struct ConnectionRunInfo {
 }
 
 impl Connection {
-    pub async fn run<E, Req>(
-        &mut self,
-        engine: &mut E,
-        url: &Uri,
-    ) -> Result<ConnectionRunInfo>
+    pub async fn run<E, Req>(&mut self, engine: &mut E, url: &Uri) -> Result<ConnectionRunInfo>
     where
         E: Engine<Req>,
         Req: Body + Send + 'static,
