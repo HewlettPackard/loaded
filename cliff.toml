@@ -14,13 +14,13 @@ body = """
 {% endif %}\
 {% if previous %}\
     {% if previous.version %}
-      [{{ previous.version }}...{{ version }}](https://github.hpe.com/hpe/rstest/compare/{{ previous.version }}...{{ version }})
+      [{{ previous.version }}...{{ version }}](https://github.hpe.com/hpe/loaded/compare/{{ previous.version }}...{{ version }})
     {% endif %}\
 {% endif %}\
 {% for group, commits in commits | group_by(attribute="group") %}
     ### {{ group | upper_first }}
     {% for commit in commits %}
-        - {{ commit.message | upper_first }} ([{{ commit.id | truncate(length=7, end="") }}](https://github.hpe.com/hpe/rstest/commit/{{ commit.id }}))\
+        - {{ commit.message | upper_first }} ([{{ commit.id | truncate(length=7, end="") }}](https://github.hpe.com/hpe/loaded/commit/{{ commit.id }}))\
           {% for footer in commit.footers -%}
             , {{ footer.token }}{{ footer.separator }}{{ footer.value }}\
           {% endfor %}\
