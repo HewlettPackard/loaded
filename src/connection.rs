@@ -97,10 +97,6 @@ impl Connection {
                 l.before_request(&req, req_len).await;
             }
 
-            while !sender.is_ready() {
-                yield_now().await;
-            }
-
             trace!("Sending request {} - {} ", req.method(), req.uri());
             let mut resp = sender.send_request(req).await?;
 
