@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
+<svg width="100%" height="100%" viewBox="0 0 1024 350" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" xml:space="preserve" xmlns:serif="http://www.serif.com/" style="fill-rule:evenodd;clip-rule:evenodd;stroke-linejoin:round;stroke-miterlimit:2;">
+    <g transform="matrix(1,0,0,0.454773,0,0)">
+        <rect id="Artboard1" x="0" y="0" width="1024" height="768" style="fill:none;"/>
+        <clipPath id="_clip1">
+            <rect id="Artboard11" serif:id="Artboard1" x="0" y="0" width="1024" height="768"/>
+        </clipPath>
+        <g clip-path="url(#_clip1)">
+            <g transform="matrix(3.97083,-1.14952,0.52277,8.73147,-1141.45,-2669.85)">
+                <g transform="matrix(50,0,0,50,472.979,414.183)">
+                </g>
+                <text x="256.573px" y="414.183px" style="font-family:'Baskerville-Bold', 'Baskerville', serif;font-weight:700;font-size:50px;fill:rgb(198,40,40);">L<tspan x="287.848px 327.667px 359.43px " y="414.183px 414.183px 414.183px ">OAD</tspan>ED</text>
+                <g transform="matrix(0.247546,0.03259,-0.03259,0.247546,242.992,337.763)">
+                </g>
+            </g>
+            <g transform="matrix(1.94185,-0.562146,0.157678,2.63359,-336.207,-543.055)">
+                <path d="M638.736,344.919L638.736,530.407L163.797,530.407L163.797,344.919L638.736,344.919ZM632.354,355.266C632.354,355.266 226.215,355.266 170.179,355.266L170.179,520.059C170.179,520.059 632.354,520.059 632.354,520.059L632.354,355.266Z" style="fill:rgb(198,40,40);"/>
+            </g>
+        </g>
+    </g>
+</svg>
