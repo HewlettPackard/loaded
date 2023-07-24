@@ -38,12 +38,13 @@ pub struct ConnectionRunInfo {
 }
 
 impl Connection {
-    pub async fn run<Req>(
+    pub async fn run<E, Req>(
         &mut self,
-        engine: &mut dyn Engine<Req>,
+        engine: &mut E,
         url: &Uri,
     ) -> Result<ConnectionRunInfo>
     where
+        E: Engine<Req>,
         Req: Body + Send + 'static,
         Req::Data: Send,
         Req::Error: Into<Box<dyn Error + Send + Sync>>,
