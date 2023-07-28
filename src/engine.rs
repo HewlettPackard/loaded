@@ -4,8 +4,8 @@ use hyper::body::{Body, Incoming};
 use hyper::http::request;
 use hyper::{Request, Response};
 
-pub mod s3_engine;
-pub mod simple_engine;
+pub mod s3;
+pub mod simple;
 
 /// An engine for generating http traffic to be sent to a HTTP server via an [crate::connection::Connection]
 #[async_trait(? Send)]

@@ -1,120 +1,7 @@
-use crate::engine::Engine;
-use crate::stream::checksum::Checksum;
-use crate::stream::StreamProvider;
-use anyhow::Result;
-use async_trait::async_trait;
-use bytes::Buf;
-use futures::Stream;
-use http_body_util::{BodyExt, StreamBody};
-use hyper::body::{Frame, Incoming};
-use hyper::http::request;
-use hyper::{Request, Response, Uri};
-
-use std::cell::RefCell;
+use hyper::Uri;
 use std::fmt::Write;
-use std::marker::PhantomData;
 
-/// An S3 engine to generate http traffic to an S3 server. This workload
-/// will consist of PUTs and GETs to the server.
-///
-/// This S3 engine does not make use of any provided S3 client but instead manually
-/// crafts the requests to ensure control over the payload and push as much load
-/// as possible.
-pub struct S3Engine<P, S>
-where
-    P: StreamProvider<S>,
-    S: Stream,
-{
-    stream_supplier: RefCell<P>,
-    uri_supplier: RefCell<UriProvider>,
-    payload_len: usize,
-    phantom: PhantomData<S>,
-    checksum_algo: Option<Checksum>,
-}
-
-impl<P, S> S3Engine<P, S>
-where
-    P: StreamProvider<S>,
-    S: Stream,
-{
-    pub fn new(
-        stream_supplier: P,
-        uri_supplier: UriProvider,
-        payload_len: usize,
-        checksum_algo: Option<Checksum>,
-    ) -> Self {
-        S3Engine {
-            stream_supplier: RefCell::new(stream_supplier),
-            uri_supplier: RefCell::new(uri_supplier),
-            payload_len,
-            phantom: PhantomData,
-            checksum_algo,
-        }
-    }
-}
-
-#[async_trait(? Send)]
-impl<P, S, D, E> Engine<StreamBody<S>> for S3Engine<P, S>
-where
-    P: StreamProvider<S>,
-    S: Stream<Item = Result<Frame<D>, E>>,
-    D: Buf,
-{
-    fn name<'a>(&self) -> &'a str {
-        "s3"
-    }
-
-    async fn setup(&mut self) -> Result<()> {
-        Ok(())
-    }
-
-    #[allow(clippy::await_holding_refcell_ref)]
-    async fn request(&mut self, req: request::Builder) -> Result<(Request<StreamBody<S>>, usize)> {
-        let (req, stream) = match &self.checksum_algo {
-            None => (req, self.stream_supplier.borrow_mut().new_stream()),
-            Some(c) => {
-                let (stream, digest) = self
-                    .stream_supplier
-                    .borrow_mut()
-                    .new_stream_with_checksum(c)
-                    .await;
-
-                let req = match c {
-                    Checksum::Md5 => req.header("Content-MD5", digest),
-                    Checksum::Crc32 => req.header("x-amz-checksum-crc32", digest),
-                    Checksum::Crc32c => req.header("x-amz-checksum-crc32c", digest),
-                    Checksum::Sha1 => req.header("x-amz-checksum-sha1", digest),
-                    Checksum::Sha2 => req.header("x-amz-checksum-sha256", digest),
-                };
-                (req, stream)
-            }
-        };
-
-        let req = req
-            .uri(&self.uri_supplier.borrow_mut().next())
-            .method("PUT")
-            .header(hyper::header::CONTENT_TYPE, "application/octet-stream")
-            .body(StreamBody::new(stream))?;
-
-        Ok((req, self.payload_len))
-    }
-
-    async fn response(&mut self, resp: &mut Response<Incoming>) -> Result<usize> {
-        let mut read = 0;
-        while let Some(next) = resp.frame().await {
-            let frame = next.unwrap();
-            if let Some(d) = frame.data_ref() {
-                read += d.len();
-            }
-        }
-        Ok(read)
-    }
-
-    async fn cleanup(&mut self) -> Result<()> {
-        Ok(())
-    }
-}
-
+#[derive(Debug, Clone)]
 struct ArbitraryRadixNumber {
     digits: Vec<usize>,
     radix: usize,
@@ -150,6 +37,7 @@ impl ArbitraryRadixNumber {
 /// The URI provider allows crafting URIs with a specified folder depth to
 /// allow stressing s3 implementations that have a performance cost for
 /// directories.
+#[derive(Debug, Clone)]
 pub struct UriProvider {
     base: String,
     bucket: String,
@@ -221,7 +109,8 @@ impl UriProvider {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use crate::engine::s3::*;
+    use hyper::Uri;
     use std::str::FromStr;
 
     #[test]

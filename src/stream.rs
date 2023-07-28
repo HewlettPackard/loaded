@@ -12,4 +12,5 @@ where
 {
     fn new_stream(&mut self) -> S;
     async fn new_stream_with_checksum(&mut self, checksum: &Checksum) -> (S, String);
+    fn empty(&mut self) -> S;
 }

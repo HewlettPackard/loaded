@@ -14,9 +14,9 @@ authors = [
 ]
 
 [dependencies]
-hyper = { version = "1.0.0-rc.3", features = ["full"] }
-tokio = { version = "1", features = ["full"] }
-http-body-util = "0.1.0-rc.2"
+hyper = { version = "=1.0.0-rc.3", features = ["full"] }
+tokio = { version = "1.29.1", features = ["full"] }
+http-body-util = "=0.1.0-rc.3"
 num_cpus = "1.15.0"
 clap = {version = "4.3.0", features = ["derive"] }
 clap_complete = "4.3.0"

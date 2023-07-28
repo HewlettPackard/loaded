@@ -152,13 +152,16 @@ pub struct S3Args {
     #[arg(long, short)]
     pub bucket: String,
 
-    /// The size in bytes of the PUT operation
+    /// The size in bytes of the object for a PUT/GET operation
     #[arg(long, short)]
-    pub put_size: usize,
+    pub object_size: usize,
 
     /// A prefix to prepend to each object key (defaults to generated UUIDv4)
-    #[arg(long, short, default_value_t = Uuid::new_v4().to_string())]
+    #[arg(long,default_value_t = Uuid::new_v4().to_string())]
     pub obj_prefix: String,
+
+    #[arg(long, short, value_enum, default_value_t = TrafficPattern::Put)]
+    pub traffic_pattern: TrafficPattern,
 
     /// Specifies the folder depth that will be used to generate prefixes
     ///
@@ -232,4 +235,11 @@ pub enum Engine {
 pub enum CompletionCondition {
     NumRequests(usize, Arc<AtomicUsize>),
     Duration(Duration),
+}
+
+#[derive(Debug, Clone, ValueEnum)]
+pub enum TrafficPattern {
+    Put,
+    Get,
+    Both,
 }

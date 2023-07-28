@@ -4,8 +4,9 @@ use crate::connection::lifecycle::ConnectionHttpLifecycle;
 use crate::connection::rate_limit::RateLimit;
 use crate::connection::stats::StatsCollector;
 use crate::connection::{Connection, ConnectionRunInfo};
-use crate::engine::s3_engine::{S3Engine, UriProvider};
-use crate::engine::simple_engine::SimpleEngine;
+use crate::engine::s3::uri::UriProvider;
+use crate::engine::s3::S3Engine;
+use crate::engine::simple::SimpleEngine;
 use crate::stats::WorkerStats;
 use crate::stream::perpetual_stream::PerpetualByteStreamSupplier;
 use anyhow::Result;
@@ -184,13 +185,26 @@ impl Worker {
 
         let mut engine = if let Some(c) = s3_args.checksum_algorithm {
             let supp =
-                PerpetualByteStreamSupplier::with_checksums(bytes, 0, s3_args.put_size, &[c]).await;
+                PerpetualByteStreamSupplier::with_checksums(bytes, 0, s3_args.object_size, &[c])
+                    .await;
 
-            S3Engine::new(supp, uri_supplier, s3_args.put_size, Some(c))
+            S3Engine::new(
+                supp,
+                uri_supplier,
+                s3_args.object_size,
+                Some(c),
+                s3_args.traffic_pattern,
+            )
         } else {
-            let supp = PerpetualByteStreamSupplier::new(bytes, 0, s3_args.put_size);
+            let supp = PerpetualByteStreamSupplier::new(bytes, 0, s3_args.object_size);
 
-            S3Engine::new(supp, uri_supplier, s3_args.put_size, None)
+            S3Engine::new(
+                supp,
+                uri_supplier,
+                s3_args.object_size,
+                None,
+                s3_args.traffic_pattern,
+            )
         };
 
         Ok(connection.run(&mut engine, url).await)

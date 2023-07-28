@@ -37,6 +37,15 @@ impl PerpetualByteStream {
             num_read: 0,
         }
     }
+
+    pub fn empty() -> Self {
+        PerpetualByteStream {
+            inner: Bytes::default(),
+            idx: 0,
+            num_to_read: 0,
+            num_read: 0,
+        }
+    }
 }
 
 impl Stream for PerpetualByteStream {
@@ -208,5 +217,9 @@ impl StreamProvider<PerpetualByteStream> for PerpetualByteStreamSupplier {
         let stream = PerpetualByteStream::new(self.buf.clone(), self.offset, self.len);
         self.offset = (self.offset + cache_line_size()) % (self.buf.len());
         (stream, checksum)
+    }
+
+    fn empty(&mut self) -> PerpetualByteStream {
+        PerpetualByteStream::empty()
     }
 }
