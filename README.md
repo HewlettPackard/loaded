@@ -80,13 +80,17 @@ Options:
 ```shell
 An engine for load testing an S3 server
 
-Usage: loaded run --url <URL> s3 [OPTIONS] --put-size <PUT_SIZE>
+Usage: loaded run --url <URL> s3 [OPTIONS] --bucket <BUCKET> --object-size <OBJECT_SIZE>
 
 Options:
-  -p, --put-size <PUT_SIZE>
-          The size in bytes of the PUT operation
-  -o, --obj-prefix <OBJ_PREFIX>
-          A prefix to prepend to each object key (defaults to generated UUIDv4) [default: bc292f55-3566-4f52-976d-82cf98d95942]
+  -b, --bucket <BUCKET>
+          The bucket to operate on for our S3 requests
+  -o, --object-size <OBJECT_SIZE>
+          The size in bytes of the object for a PUT/GET operation
+      --obj-prefix <OBJ_PREFIX>
+          A prefix to prepend to each object key (defaults to generated UUIDv4) [default: f56c0581-d3e0-4192-9ad1-4a519c4d522b]
+  -t, --traffic-pattern <TRAFFIC_PATTERN>
+          [default: put] [possible values: put, get, both]
       --folder_depth <PREFIX_FOLDER_DEPTH>
           Specifies the folder depth that will be used to generate prefixes [default: 0]
       --num-objs-per-prefix-folder <NUM_OBJS_PER_PREFIX_FOLDER>
@@ -97,7 +101,6 @@ Options:
           The checksum algorithm to calculate and use for the S3 request
   -h, --help
           Print help (see more with '--help')
-
 ```
 
 ### Generate Shell Completions
