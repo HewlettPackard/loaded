@@ -4,8 +4,6 @@ use clap_complete::Shell;
 use std::error::Error;
 use std::path::PathBuf;
 use std::str::FromStr;
-use std::sync::atomic::AtomicUsize;
-use std::sync::Arc;
 use std::time::Duration;
 use uuid::Uuid;
 
@@ -229,12 +227,6 @@ pub enum Engine {
     /// Note: makes use of the `seed` argument.
     #[command(arg_required_else_help = true)]
     S3(S3Args),
-}
-
-#[derive(Debug, Clone)]
-pub enum CompletionCondition {
-    NumRequests(usize, Arc<AtomicUsize>),
-    Duration(Duration),
 }
 
 #[derive(Debug, Clone, ValueEnum)]

@@ -48,3 +48,37 @@ pub fn format_duration_f64(time_nanos: f64) -> String {
         t => format!("{:.3}d", t / (DAY as f64)),
     }
 }
+
+// Divvys up the `to_divvy` value across `num_items` yielding an iterator of equivalent len
+pub fn divvy(to_divvy: usize, num_items: usize) -> impl Iterator<Item = usize> {
+    let num_per_item = to_divvy / num_items;
+    let num_per_item_remainder = to_divvy % num_items;
+
+    (0..num_items).map(move |i| {
+        if i < num_per_item_remainder {
+            num_per_item + 1
+        } else {
+            num_per_item
+        }
+    })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::iter;
+
+    #[test]
+    fn test_divvy_no_remainder() {
+        let actual = divvy(25, 5);
+        let expected = iter::repeat(5).take(5);
+        assert!(actual.eq(expected));
+    }
+
+    #[test]
+    fn test_divvy_with_remainder() {
+        let actual = divvy(29, 5);
+        let expected = [6, 6, 6, 6, 5].into_iter();
+        assert!(actual.eq(expected));
+    }
+}

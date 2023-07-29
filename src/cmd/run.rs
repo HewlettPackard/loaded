@@ -1,6 +1,6 @@
-use crate::cli::{CompletionCondition, FormatType, RunCmd};
+use crate::cli::{FormatType, RunCmd};
 use crate::stats::{InstantStats, RunStats, SummaryStats, WorkerStats};
-use crate::worker::{Worker, WorkerInfo};
+use crate::worker::{CompletionCondition, Worker, WorkerInfo};
 use anyhow::{anyhow, Result};
 use bigdecimal::BigDecimal;
 use bytesize::ByteSize;
@@ -10,6 +10,9 @@ use governor::{Quota, RateLimiter};
 use log::info;
 use num_bigint::BigInt;
 
+use crate::util;
+use itertools::izip;
+use std::iter::zip;
 use std::num::NonZeroU32;
 use std::sync::atomic::AtomicBool;
 use std::sync::atomic::Ordering::Relaxed;
@@ -39,28 +42,25 @@ pub fn run(args: &RunCmd) -> Result<()> {
         )))
     });
 
-    let completion_condition = if args.num_requests.is_some() {
-        Some(CompletionCondition::NumRequests(
-            args.num_requests.unwrap(),
-            Arc::default(),
-        ))
+    // Build the completions conditions that correspond to our workers
+    let completion_conditions: Vec<Option<CompletionCondition>> = if args.num_requests.is_some() {
+        // Divvy up the requests across the workers so they're distributed evenly
+        util::divvy(args.num_requests.unwrap(), args.threads)
+            .map(|num_requests| Some(CompletionCondition::NumRequests(num_requests)))
+            .collect()
     } else if args.duration.is_some() {
-        Some(CompletionCondition::Duration(args.duration.unwrap()))
+        iter::repeat(Some(CompletionCondition::Duration(args.duration.unwrap())))
+            .take(args.threads)
+            .collect()
     } else {
-        None
+        iter::repeat(None).take(args.threads).collect()
     };
 
-    let num_connections_per_thread = args.connections / args.threads;
-    let mut num_connections_per_thread_remainder = args.connections % args.threads;
-    for i in 0..args.threads {
-        // Spread the remainder evenly
-        let num_connections = if num_connections_per_thread_remainder > 0 {
-            num_connections_per_thread_remainder -= 1;
-            num_connections_per_thread + 1
-        } else {
-            num_connections_per_thread
-        };
-
+    for (i, num_connections, completion_condition) in izip!(
+        0..args.threads,
+        util::divvy(args.connections, args.threads),
+        completion_conditions,
+    ) {
         let (handle, worker_stats) = start_worker(
             &args,
             num_connections,
@@ -75,7 +75,7 @@ pub fn run(args: &RunCmd) -> Result<()> {
     }
 
     let (requests_issued, bytes_written, bytes_read) =
-        wait_for_completion(&args, &run_flag, &mut stats);
+        wait_for_completion(&args, &run_flag, &handles, &mut stats);
 
     let infos = handles
         .into_iter()
@@ -143,6 +143,7 @@ fn start_worker(
 fn wait_for_completion(
     args: &RunCmd,
     run_flag: &Arc<AtomicBool>,
+    worker_handles: &[JoinHandle<WorkerInfo>],
     current_stats: &mut Vec<Arc<RwLock<WorkerStats>>>,
 ) -> (BigInt, BigInt, BigInt) {
     let dur = Duration::from_millis(1000);
@@ -155,9 +156,10 @@ fn wait_for_completion(
     let mut total_bytes_read: BigInt = BigInt::default();
 
     loop {
-        if !run_flag.load(Relaxed) {
+        if !run_flag.load(Relaxed) || worker_handles.iter().all(JoinHandle::is_finished) {
             break;
         }
+
         sleep(dur);
 
         let stats = sum_instant_stats(&mut previous_stats, &current_stats);
@@ -180,7 +182,7 @@ fn sum_instant_stats(
     th: &Vec<Arc<RwLock<WorkerStats>>>,
 ) -> InstantStats {
     let mut stats = vec![];
-    for (a, b) in iter::zip(th, curr) {
+    for (a, b) in zip(th, curr) {
         let guard = a.blocking_read();
         let changed = guard.instant_stats.changed(b);
         b.requests_issued = guard.instant_stats.requests_issued;

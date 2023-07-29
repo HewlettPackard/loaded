@@ -1,14 +1,15 @@
-use crate::cli::{CompletionCondition, Engine, S3Args, SimpleArgs};
+use crate::cli::{Engine, S3Args, SimpleArgs};
 use crate::connection::completion::{DurationCompletionCondition, RequestCompletionCondition};
 use crate::connection::lifecycle::ConnectionHttpLifecycle;
 use crate::connection::rate_limit::RateLimit;
 use crate::connection::stats::StatsCollector;
-use crate::connection::{Connection, ConnectionRunInfo};
+use crate::connection::{Connection, ConnectionRunInfo, RunFlag};
 use crate::engine::s3::uri::UriProvider;
 use crate::engine::s3::S3Engine;
 use crate::engine::simple::SimpleEngine;
 use crate::stats::WorkerStats;
 use crate::stream::perpetual_stream::PerpetualByteStreamSupplier;
+use crate::util;
 use anyhow::Result;
 use bytes::{Bytes, BytesMut};
 use governor::clock::DefaultClock;
@@ -16,8 +17,11 @@ use governor::state::{InMemoryState, NotKeyed};
 use governor::RateLimiter;
 use hyper::Uri;
 use log::debug;
+use std::iter;
+use std::rc::Rc;
 use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
+use std::time::Duration;
 use tokio::fs::File;
 use tokio::io::AsyncReadExt;
 use tokio::sync::{Barrier, RwLock};
@@ -42,29 +46,55 @@ impl Worker {
         seed: String,
         completion_condition: Option<CompletionCondition>,
     ) -> Result<WorkerInfo> {
-        debug!("Starting {} connections", num_connections);
+        debug!(
+            "Running worker {} with {num_connections} connections",
+            self.worker_id
+        );
         let mut handles = vec![];
 
         // Setup barrier to sync up all connections to not proceed until all have
         // completed their setup step
         let setup_barrier = Arc::new(Barrier::new(num_connections));
 
-        for i in 0..num_connections {
+        // Build the completions conditions that correspond to our connections
+        let completion_conditions: Vec<Option<CompletionCondition>> = match completion_condition {
+            None => iter::repeat(None).take(num_connections).collect(),
+            Some(c) => {
+                if let CompletionCondition::NumRequests(r) = c {
+                    // Divvy up the requests across the connections so they're distributed evenly
+                    util::divvy(r, num_connections)
+                        .map(|num_requests| Some(CompletionCondition::NumRequests(num_requests)))
+                        .collect()
+                } else {
+                    iter::repeat(Some(c)).take(num_connections).collect()
+                }
+            }
+        };
+
+        for (i, completion_condition) in iter::zip(0..num_connections, completion_conditions) {
             let url = url.parse::<Uri>()?;
             let stats = self.stats.clone();
             let run = self.run_flag.clone();
             let barrier = setup_barrier.clone();
             let limit = self.rate_limit.clone();
             let engine = engine.clone();
-            let completion_condition = completion_condition.clone();
             let seed = seed.clone();
+            let parent_worker_id = self.worker_id;
 
             let handle = tokio::task::spawn_local(async move {
-                let lifecycle_listeners =
-                    Self::create_lifecycle_listeners(i, stats, &run, limit, completion_condition);
+                let local_run = Rc::new(AtomicBool::new(true));
+                let lifecycle_listeners = Self::create_lifecycle_listeners(
+                    i,
+                    stats,
+                    &run,
+                    &local_run,
+                    limit,
+                    completion_condition,
+                );
 
                 let connection = Connection {
-                    run,
+                    parent_worker_id,
+                    run_flag: RunFlag::new(run, local_run),
                     setup_barrier: barrier,
                     id: i,
                     lifecycle_listeners,
@@ -82,10 +112,12 @@ impl Worker {
             handles.push(handle);
         }
 
+        debug!("Waiting for worker {} to complete", self.worker_id);
         let mut run_infos = vec![];
         for h in handles {
             run_infos.push(h.await??);
         }
+        debug!("Worker {} completed", self.worker_id);
 
         Ok(WorkerInfo { run_infos })
     }
@@ -93,7 +125,8 @@ impl Worker {
     fn create_lifecycle_listeners(
         id: usize,
         stats: Arc<RwLock<WorkerStats>>,
-        run: &Arc<AtomicBool>,
+        global_run: &Arc<AtomicBool>,
+        local_run: &Rc<AtomicBool>,
         limit: Option<Arc<RateLimiter<NotKeyed, InMemoryState, DefaultClock>>>,
         completion_condition: Option<CompletionCondition>,
     ) -> Vec<ConnectionHttpLifecycle> {
@@ -104,13 +137,9 @@ impl Worker {
         }
         if let Some(cond) = completion_condition {
             match cond {
-                CompletionCondition::NumRequests(num_requests, counter) => {
+                CompletionCondition::NumRequests(num_requests) => {
                     lifecycle_listeners.push(ConnectionHttpLifecycle::RequestsCompletion(
-                        RequestCompletionCondition {
-                            run: run.clone(),
-                            num_requests: counter,
-                            num_requests_for_completion: num_requests,
-                        },
+                        RequestCompletionCondition::new(local_run.clone(), num_requests),
                     ));
                 }
                 CompletionCondition::Duration(duration) => {
@@ -118,7 +147,7 @@ impl Worker {
                         // only run one of these
                         lifecycle_listeners.push(ConnectionHttpLifecycle::DurationCompletion(
                             DurationCompletionCondition {
-                                run: run.clone(),
+                                run: global_run.clone(),
                                 duration_cond: duration,
                                 handle: None,
                             },
@@ -209,4 +238,10 @@ impl Worker {
 
         Ok(connection.run(&mut engine, url).await)
     }
+}
+
+#[derive(Debug, Clone)]
+pub enum CompletionCondition {
+    NumRequests(usize),
+    Duration(Duration),
 }

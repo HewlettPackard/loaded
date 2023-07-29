@@ -12,6 +12,7 @@ use hyper::body::Body;
 use hyper::{Request, Uri};
 use log::{error, info, trace};
 use std::error::Error;
+use std::rc::Rc;
 use std::sync::atomic::AtomicBool;
 use std::sync::atomic::Ordering::Relaxed;
 use std::sync::Arc;
@@ -25,8 +26,9 @@ pub mod rate_limit;
 pub mod stats;
 
 pub struct Connection {
+    pub parent_worker_id: usize,
     pub id: usize,
-    pub run: Arc<AtomicBool>,
+    pub run_flag: RunFlag,
     pub setup_barrier: Arc<Barrier>,
     pub lifecycle_listeners: Vec<ConnectionHttpLifecycle>,
 }
@@ -44,7 +46,12 @@ impl Connection {
         Req::Data: Send,
         Req::Error: Into<Box<dyn Error + Send + Sync>>,
     {
-        info!("Starting {} engine ({})", engine.name(), self.id);
+        info!(
+            "Starting {} engine (worker {}, connection: {})",
+            engine.name(),
+            self.parent_worker_id,
+            self.id
+        );
         engine.setup().await?;
 
         self.setup_barrier.wait().await;
@@ -71,7 +78,7 @@ impl Connection {
         let authority = url.authority().unwrap().clone();
 
         'run: loop {
-            if !self.run.load(Relaxed) {
+            if !self.run_flag.should_run() {
                 break;
             }
 
@@ -115,5 +122,24 @@ impl Connection {
             start_time,
             end_time,
         })
+    }
+}
+
+#[derive(Debug)]
+pub struct RunFlag {
+    global_run: Arc<AtomicBool>,
+    local_run: Rc<AtomicBool>,
+}
+
+impl RunFlag {
+    pub fn new(global_run: Arc<AtomicBool>, local_run: Rc<AtomicBool>) -> Self {
+        RunFlag {
+            global_run,
+            local_run,
+        }
+    }
+
+    fn should_run(&self) -> bool {
+        self.global_run.load(Relaxed) && self.local_run.load(Relaxed)
     }
 }
