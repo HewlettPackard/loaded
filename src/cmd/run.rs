@@ -185,6 +185,8 @@ fn sum_instant_stats(
         let changed = guard.instant_stats.changed(b);
         b.requests_issued = guard.instant_stats.requests_issued;
         b.bytes_written = guard.instant_stats.bytes_written;
+        b.bytes_read = guard.instant_stats.bytes_read;
+
         drop(guard);
 
         stats.push(InstantStats {
@@ -197,6 +199,7 @@ fn sum_instant_stats(
     stats.iter().fold(InstantStats::default(), |mut acc, curr| {
         acc.requests_issued += curr.requests_issued;
         acc.bytes_written += curr.bytes_written;
+        acc.bytes_read += curr.bytes_read;
         acc
     })
 }
