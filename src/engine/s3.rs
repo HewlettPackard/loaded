@@ -5,9 +5,11 @@ use crate::cli::TrafficPattern;
 use crate::engine::Engine;
 use crate::stream::checksum::Checksum;
 use crate::stream::StreamProvider;
+use crate::util;
 use anyhow::Result;
 use async_trait::async_trait;
 use bytes::Buf;
+use chrono::Utc;
 use futures::Stream;
 use http_body_util::{BodyExt, StreamBody};
 use hyper::body::{Frame, Incoming};
@@ -18,6 +20,7 @@ use std::cell::RefCell;
 use std::marker::PhantomData;
 use traffic::{TrafficState, TrafficStateMachine};
 use uri::UriProvider;
+
 /// An S3 engine to generate http traffic to an S3 server. This workload
 /// will consist of PUTs and GETs to the server.
 ///
@@ -103,7 +106,13 @@ where
                 let req = req
                     .uri(uri)
                     .method("PUT")
+                    .header(hyper::header::USER_AGENT, util::user_agent())
                     .header(hyper::header::CONTENT_TYPE, "application/octet-stream")
+                    .header(hyper::header::CONTENT_LENGTH, self.object_size.to_string())
+                    .header(
+                        "X-Amz-Date",
+                        Utc::now().format("%Y%m%dT%H%M%SZ").to_string(),
+                    )
                     .body(StreamBody::new(stream))?;
 
                 Ok((req, self.object_size))

@@ -1,4 +1,6 @@
 use bigdecimal::num_traits::Pow;
+use once_cell::sync::OnceCell;
+use sysinfo::{System, SystemExt};
 
 const MICROSECOND: u64 = 1000;
 const MILLISECOND: u64 = MICROSECOND * 1000;
@@ -47,6 +49,21 @@ pub fn format_duration_f64(time_nanos: f64) -> String {
         t if t < DAY as f64 => format!("{:.3}h", t / (HOUR as f64)),
         t => format!("{:.3}d", t / (DAY as f64)),
     }
+}
+
+static USER_AGENT: OnceCell<String> = OnceCell::new();
+pub fn user_agent<'a>() -> &'a str {
+    &USER_AGENT.get_or_init(|| {
+        let mut sys = System::new_all();
+        sys.refresh_all();
+
+        format!(
+            "loaded/{} {:?}/{:?}",
+            env!("CARGO_PKG_VERSION"),
+            sys.name(),
+            sys.kernel_version()
+        )
+    })
 }
 
 // Divvys up the `to_divvy` value across `num_items` yielding an iterator of equivalent len
