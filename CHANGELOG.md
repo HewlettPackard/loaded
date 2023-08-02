@@ -2,6 +2,29 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.2.0] - 2023-08-02
+
+[v0.1.2...v0.2.0](https://github.hpe.com/hpe/loaded/compare/v0.1.2...v0.2.0)
+
+### Bug Fixes
+
+- Read stats not properly reporting ([4ca65b2](https://github.hpe.com/hpe/loaded/commit/4ca65b239e5223adca4bc590ab5fe53656586d39))
+
+### Documentation
+
+- Update s3 engine cli docs ([5321c46](https://github.hpe.com/hpe/loaded/commit/5321c46340a4d6692bec9ffeb46a2f3940b88c82))
+
+### Features
+
+- Add support for S3 GETs ([c73bc71](https://github.hpe.com/hpe/loaded/commit/c73bc71c2de12ae87d85f57a5a334ecee670888e))
+
+### Miscellaneous Tasks
+
+- Add issue templates ([6b8f46c](https://github.hpe.com/hpe/loaded/commit/6b8f46c3d71127b2d66532375da22d1b17f88d1b))
+- Add dependabot ([8f98851](https://github.hpe.com/hpe/loaded/commit/8f9885161dce10ac8201a7191a6fb64537b4149f))
+- Add pre-commit-config ([66935e1](https://github.hpe.com/hpe/loaded/commit/66935e1a2a38e2281cee94d50a81c6197a54e08c))
+- Add idea icon for project ([d7ae134](https://github.hpe.com/hpe/loaded/commit/d7ae1349583ccc56a3325286cb20dde4709deb6e))
+
 ## [0.1.2] - 2023-07-24
 
 [v0.1.1...v0.1.2](https://github.hpe.com/hpe/loaded/compare/v0.1.1...v0.1.2)
