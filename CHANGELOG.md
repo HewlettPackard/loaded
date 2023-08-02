@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.2.1] - 2023-08-02
+
+[v0.2.0...v0.2.1](https://github.hpe.com/hpe/loaded/compare/v0.2.0...v0.2.1)
+
+### Bug Fixes
+
+- Correct indeterministic runs by divvying up requests ([17b1356](https://github.hpe.com/hpe/loaded/commit/17b1356ee8c97bbae630bda1fc75e3e0444ebca0))
+
 ## [0.2.0] - 2023-08-02
 
 [v0.1.2...v0.2.0](https://github.hpe.com/hpe/loaded/compare/v0.1.2...v0.2.0)
