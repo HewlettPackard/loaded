@@ -1,4 +1,4 @@
-use crate::util::{format_duration_f64, format_duration_u64};
+use crate::util::{format_duration, format_duration_f64};
 use bigdecimal::{BigDecimal, ToPrimitive};
 use bytesize::ByteSize;
 use hdrhistogram::Histogram;
@@ -118,14 +118,14 @@ impl Display for LatencyStats {
         f.write_str(&format!(
             "Mean: {}, Min: {}, Max: {}\n",
             format_duration_f64(self.mean),
-            format_duration_u64(self.min),
-            format_duration_u64(self.max)
+            format_duration(self.min.into()),
+            format_duration(self.max.into())
         ))?;
-        f.write_str(&format!("p50: {}\n", format_duration_u64(self.p50)))?;
-        f.write_str(&format!("p95: {}\n", format_duration_u64(self.p95)))?;
-        f.write_str(&format!("p99: {}\n", format_duration_u64(self.p99)))?;
-        f.write_str(&format!("p999: {}\n", format_duration_u64(self.p999)))?;
-        f.write_str(&format!("p9999: {}\n", format_duration_u64(self.p9999)))
+        f.write_str(&format!("p50: {}\n", format_duration(self.p50.into())))?;
+        f.write_str(&format!("p95: {}\n", format_duration(self.p95.into())))?;
+        f.write_str(&format!("p99: {}\n", format_duration(self.p99.into())))?;
+        f.write_str(&format!("p999: {}\n", format_duration(self.p999.into())))?;
+        f.write_str(&format!("p9999: {}\n", format_duration(self.p9999.into())))
     }
 }
 

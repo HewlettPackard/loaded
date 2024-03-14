@@ -6,7 +6,7 @@ use crate::engine::Engine;
 use crate::stream::checksum::Checksum;
 use crate::stream::StreamProvider;
 use crate::util;
-use anyhow::Result;
+use anyhow::{bail, Result};
 use async_trait::async_trait;
 use bytes::Buf;
 use chrono::Utc;
@@ -138,13 +138,20 @@ where
         }
 
         if resp.status().is_success() {
-            if let Some(TrafficState::Get { .. }) = self.last_traffic_state {
+            if let Some(TrafficState::Get { .. }) = self.last_traffic_state.as_ref() {
                 if read != self.object_size {
                     warn!(
                         "Unexpected object size {read}, expected {}",
                         self.object_size
                     );
                 }
+            }
+        } else {
+            match self.last_traffic_state.as_ref() {
+                Some(TrafficState::Get { uri } | TrafficState::Put { uri }) => {
+                    bail!("Request {:?} failed: {}", uri, resp.status())
+                }
+                None => unreachable!(),
             }
         }
 

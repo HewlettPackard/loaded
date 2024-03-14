@@ -2,7 +2,8 @@
 #![allow(
     clippy::style,
     clippy::module_name_repetitions,
-    clippy::missing_errors_doc
+    clippy::missing_errors_doc,
+    clippy::similar_names
 )]
 
 pub mod cli;

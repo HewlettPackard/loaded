@@ -34,6 +34,7 @@ pub struct Worker {
 }
 
 pub struct WorkerInfo {
+    pub worker_id: usize,
     pub run_infos: Vec<ConnectionRunInfo>,
 }
 
@@ -119,7 +120,10 @@ impl Worker {
         }
         debug!("Worker {} completed", self.worker_id);
 
-        Ok(WorkerInfo { run_infos })
+        Ok(WorkerInfo {
+            worker_id: self.worker_id,
+            run_infos,
+        })
     }
 
     fn create_lifecycle_listeners(

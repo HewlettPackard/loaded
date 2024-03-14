@@ -7,15 +7,17 @@
 
 use crate::connection::lifecycle::{ConnectionHttpLifecycle, ConnectionLifecycle};
 use crate::engine::Engine;
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 use hyper::body::Body;
 use hyper::{Request, Uri};
+use hyper_util::rt::TokioIo;
 use log::{error, info, trace};
 use std::error::Error;
 use std::rc::Rc;
 use std::sync::atomic::AtomicBool;
 use std::sync::atomic::Ordering::Relaxed;
 use std::sync::Arc;
+use std::time::Duration;
 use tokio::net::TcpStream;
 use tokio::sync::Barrier;
 use tokio::time::Instant;
@@ -65,8 +67,9 @@ impl Connection {
         let address = format!("{host}:{port}");
 
         let stream = TcpStream::connect(address).await?;
+        let io = TokioIo::new(stream);
 
-        let (mut sender, conn) = hyper::client::conn::http1::handshake(stream).await.unwrap();
+        let (mut sender, conn) = hyper::client::conn::http1::handshake(io).await.unwrap();
 
         tokio::task::spawn_local(async move {
             if let Err(err) = conn.await {
@@ -100,7 +103,19 @@ impl Connection {
             }
 
             trace!("Sending request {} - {} ", req.method(), req.uri());
-            let mut resp = sender.send_request(req).await?;
+            let method = req.method().clone();
+            let uri = req.uri().clone();
+            let timeout_duration = Duration::from_secs(30);
+            let mut resp = tokio::time::timeout(timeout_duration, sender.send_request(req))
+                .await
+                .map_err(|_| {
+                    anyhow!(
+                        "{} request to {} timed out after {}",
+                        method,
+                        uri,
+                        crate::util::format_duration(timeout_duration.as_nanos())
+                    )
+                })??;
 
             for l in &mut self.lifecycle_listeners {
                 l.after_request().await;

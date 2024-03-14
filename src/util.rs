@@ -2,14 +2,14 @@ use bigdecimal::num_traits::Pow;
 use once_cell::sync::OnceCell;
 use sysinfo::{System, SystemExt};
 
-const MICROSECOND: u64 = 1000;
-const MILLISECOND: u64 = MICROSECOND * 1000;
-const SECOND: u64 = MILLISECOND * 1000;
-const MINUTE: u64 = SECOND * 60;
-const HOUR: u64 = MINUTE * 6;
-const DAY: u64 = HOUR * 24;
+const MICROSECOND: u128 = 1000;
+const MILLISECOND: u128 = MICROSECOND * 1000;
+const SECOND: u128 = MILLISECOND * 1000;
+const MINUTE: u128 = SECOND * 60;
+const HOUR: u128 = MINUTE * 6;
+const DAY: u128 = HOUR * 24;
 
-pub fn format_duration_u64(time_nanos: u64) -> String {
+pub fn format_duration(time_nanos: u128) -> String {
     match time_nanos {
         t if t < MICROSECOND => format!("{t}ns"),
         t if t < MILLISECOND => format_unit(t, "us", MICROSECOND, 3),
@@ -27,9 +27,9 @@ pub fn format_duration_u64(time_nanos: u64) -> String {
     clippy::cast_possible_truncation
 )]
 fn format_unit(
-    nanos: u64,
+    nanos: u128,
     units_label: &str,
-    units_factor: u64,
+    units_factor: u128,
     num_fractional_digits: i32,
 ) -> String {
     let integer_digits = nanos / units_factor;

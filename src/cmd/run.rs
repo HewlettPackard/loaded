@@ -7,13 +7,14 @@ use bytesize::ByteSize;
 use governor::clock::DefaultClock;
 use governor::state::{InMemoryState, NotKeyed};
 use governor::{Quota, RateLimiter};
-use log::info;
+use log::{error, info};
 use num_bigint::BigInt;
 
 use crate::util;
 use itertools::izip;
 use std::iter::zip;
 use std::num::NonZeroU32;
+use std::process::exit;
 use std::sync::atomic::AtomicBool;
 use std::sync::atomic::Ordering::Relaxed;
 use std::sync::Arc;
@@ -61,14 +62,16 @@ pub fn run(args: &RunCmd) -> Result<()> {
         util::divvy(args.connections, args.threads),
         completion_conditions,
     ) {
-        let (handle, worker_stats) = start_worker(
+        let worker_stats = Arc::new(RwLock::new(WorkerStats::default()));
+        let handle = start_worker(
             &args,
             num_connections,
             &run_flag,
             &lim,
             &completion_condition,
             i,
-        );
+            &worker_stats,
+        )?;
 
         handles.push(handle);
         stats.push(worker_stats);
@@ -79,9 +82,19 @@ pub fn run(args: &RunCmd) -> Result<()> {
 
     let infos = handles
         .into_iter()
-        .map(JoinHandle::join)
-        .collect::<Result<Vec<_>, _>>()
-        .map_err(|e| anyhow!("Failed to join worker thread: {:?}", e))?;
+        .flat_map(JoinHandle::join)
+        .filter_map(|res| match res {
+            Ok(o) => Some(o),
+            Err(e) => {
+                error!("Worker encountered an error: {}", e);
+                None
+            }
+        })
+        .collect::<Vec<_>>();
+
+    if infos.is_empty() {
+        exit(1)
+    }
 
     let total_runtime = get_total_runtime(infos);
     let summary_stats = SummaryStats::new(
@@ -107,10 +120,10 @@ fn start_worker(
     lim: &Option<Arc<RateLimiter<NotKeyed, InMemoryState, DefaultClock>>>,
     completion_condition: &Option<CompletionCondition>,
     worker_id: usize,
-) -> (JoinHandle<WorkerInfo>, Arc<RwLock<WorkerStats>>) {
+    worker_stats: &Arc<RwLock<WorkerStats>>,
+) -> Result<JoinHandle<Result<WorkerInfo>>> {
     let url = args.url.clone();
     info!("Starting worker {}", worker_id);
-    let worker_stats = Arc::new(RwLock::new(WorkerStats::default()));
 
     let mut worker = Worker {
         worker_id,
@@ -121,29 +134,30 @@ fn start_worker(
     let engine = args.engine.clone();
     let completion_condition = completion_condition.clone();
     let seed = args.seed.clone();
-    let handle = thread::spawn(move || {
-        let rt = tokio::runtime::Builder::new_current_thread()
-            .enable_all()
-            .build()
-            .expect("build runtime");
+    let handle = thread::Builder::new()
+        .name(format!("Worker {worker_id}"))
+        .spawn(move || {
+            let rt = tokio::runtime::Builder::new_current_thread()
+                .enable_all()
+                .build()
+                .expect("build runtime");
 
-        let local = tokio::task::LocalSet::new();
-        local
-            .block_on(&rt, async move {
+            let local = tokio::task::LocalSet::new();
+            local.block_on(&rt, async move {
                 worker
                     .run(engine, url, connections, seed, completion_condition)
                     .await
             })
-            .expect("Worker run failed: {}")
-    });
+        })
+        .map_err(|e| anyhow!("{:?}", e))?;
 
-    (handle, worker_stats)
+    Ok(handle)
 }
 
 fn wait_for_completion(
     args: &RunCmd,
     run_flag: &Arc<AtomicBool>,
-    worker_handles: &[JoinHandle<WorkerInfo>],
+    worker_handles: &[JoinHandle<Result<WorkerInfo>>],
     current_stats: &mut Vec<Arc<RwLock<WorkerStats>>>,
 ) -> (BigInt, BigInt, BigInt) {
     let dur = Duration::from_millis(1000);

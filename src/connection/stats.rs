@@ -40,23 +40,23 @@ impl ConnectionLifecycle for StatsCollector {
     }
 
     async fn after_response<T>(&mut self, resp: &Response<T>, resp_len: usize) {
-        let round_trip_time = u64::try_from(self.start.unwrap().elapsed().as_nanos()).unwrap();
         let mut guard = self.stats.write().await;
-        guard
-            .run_stats
-            .rtt_latency_hist
-            .record(round_trip_time)
-            .unwrap();
-        guard
-            .run_stats
-            .ttfb_latency_hist
-            .record(u64::try_from(self.time_to_first_byte.unwrap().as_nanos()).unwrap())
-            .unwrap();
-        guard.instant_stats.requests_issued += 1;
-        guard.instant_stats.bytes_written += self.req_size;
-        guard.instant_stats.bytes_read += resp_len;
-
-        if !resp.status().is_success() {
+        if resp.status().is_success() {
+            let round_trip_time = u64::try_from(self.start.unwrap().elapsed().as_nanos()).unwrap();
+            guard
+                .run_stats
+                .rtt_latency_hist
+                .record(round_trip_time)
+                .unwrap();
+            guard
+                .run_stats
+                .ttfb_latency_hist
+                .record(u64::try_from(self.time_to_first_byte.unwrap().as_nanos()).unwrap())
+                .unwrap();
+            guard.instant_stats.requests_issued += 1;
+            guard.instant_stats.bytes_written += self.req_size;
+            guard.instant_stats.bytes_read += resp_len;
+        } else {
             guard
                 .run_stats
                 .errors
