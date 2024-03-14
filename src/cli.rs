@@ -5,7 +5,6 @@ use std::error::Error;
 use std::path::PathBuf;
 use std::str::FromStr;
 use std::time::Duration;
-use uuid::Uuid;
 
 #[derive(Parser, Debug)]
 #[command(
@@ -153,10 +152,6 @@ pub struct S3Args {
     /// The size in bytes of the object for a PUT/GET operation
     #[arg(long, short)]
     pub object_size: usize,
-
-    /// A prefix to prepend to each object key (defaults to generated UUIDv4)
-    #[arg(long,default_value_t = Uuid::new_v4().to_string())]
-    pub obj_prefix: String,
 
     #[arg(long, short, value_enum, default_value_t = TrafficPattern::Put)]
     pub traffic_pattern: TrafficPattern,

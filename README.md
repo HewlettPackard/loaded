@@ -87,8 +87,6 @@ Options:
           The bucket to operate on for our S3 requests
   -o, --object-size <OBJECT_SIZE>
           The size in bytes of the object for a PUT/GET operation
-      --obj-prefix <OBJ_PREFIX>
-          A prefix to prepend to each object key (defaults to generated UUIDv4) [default: f56c0581-d3e0-4192-9ad1-4a519c4d522b]
   -t, --traffic-pattern <TRAFFIC_PATTERN>
           [default: put] [possible values: put, get, both]
       --folder_depth <PREFIX_FOLDER_DEPTH>

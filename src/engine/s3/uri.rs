@@ -88,8 +88,8 @@ impl UriProvider {
         // Build the uri, leaving the object prefix at the very top to ensure that all
         // our folders are unique for the run
         let uri = format!(
-            "{}/{}/{}{}{}",
-            self.base, self.bucket, dir_prefix, self.obj_prefix, self.obj_cnt
+            "{}/{}/{}-{}{}",
+            self.base, self.bucket, self.obj_prefix, dir_prefix, self.obj_cnt
         )
         .parse::<Uri>()
         .unwrap();

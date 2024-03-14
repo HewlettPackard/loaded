@@ -106,7 +106,13 @@ impl Worker {
                         Self::run_simple_engine(connection, &url, simple_args).await?
                     }
                     Engine::S3(s3_args) => {
-                        Self::run_s3_engine(connection, &url, seed, s3_args).await?
+                        Self::run_s3_engine(
+                            connection,
+                            &url,
+                            format!("{seed}-{parent_worker_id}-{i}"),
+                            s3_args,
+                        )
+                        .await?
                     }
                 }
             });
@@ -191,7 +197,7 @@ impl Worker {
     async fn run_s3_engine(
         mut connection: Connection,
         url: &Uri,
-        _seed: String,
+        seed: String,
         s3_args: S3Args,
     ) -> Result<Result<ConnectionRunInfo>> {
         let mut file = File::open("/dev/urandom").await?;
@@ -210,7 +216,7 @@ impl Worker {
         let uri_supplier = UriProvider::new(
             base,
             s3_args.bucket,
-            s3_args.obj_prefix,
+            seed,
             s3_args.prefix_folder_depth,
             s3_args.num_objs_per_prefix_folder,
             s3_args.num_branches_per_folder_depth,
