@@ -28,7 +28,7 @@ hdrhistogram = "7.5.2"
 num-bigint = { version = "0.4.3", features = ["serde"] }
 ctrlc = "3.3.0"
 async-trait = "0.1.68"
-enum_dispatch = "0.3.11"
+enum_dispatch = "0.3.13"
 bigdecimal = { version = "0.4.0", features = ["serde"] }
 bytesize = "1.2.0"
 tokio-util = "0.7.8"
